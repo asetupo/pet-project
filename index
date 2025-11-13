@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Питомец</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <a href="{{ url_for('logout') }}">Выйти</a>
+    <h1>Мои питомцы</h1>
+    <a href="{{ url_for('add_pet') }}">Добавить питомца</a>
+    <table>
+        <tr>
+            <th>Имя</th>
+            <th>Вид</th>
+            <th>Возраст</th>
+            <th>Действия</th>
+        </tr>
+        {% for pet in pets %}
+        <tr>
+            <td>{{ pet[1] }}</td>
+            <td>{{ pet[2] }}</td>
+            <td>{{ pet[3] }}</td>
+            <td>
+                <form action="{{ url_for('delete_pet', pet_id=pet.id) }}" method="post">
+                    <button type="submit">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
