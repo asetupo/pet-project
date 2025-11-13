@@ -1,62 +1,149 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, g, render_template, request, redirect, url_for, session
 import sqlite3
+import os
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-DATABASE = 'pet.db'
+app.secret_key = 'your_secret_key'
+DATABASE = 'pets.db'
 
 def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+        db.row_factory = sqlite3.Row  # чтобы обращаться к колонкам по именам
+    return db
+
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
 
 def init_db():
     with app.app_context():
         db = get_db()
-        with open('schema.sql', 'r') as f:
+        with app.open_resource('schema.sql', mode='r') as f:
             db.executescript(f.read())
-        # Создаем начального питомца
-        db.execute('INSERT INTO pet (name, hunger, happiness, energy) VALUES (?, ?, ?, ?)',
-                   ('Питомец', 50, 50, 50))
-        db.commit()
 
-@app.before_first_request
-def initialize():
-    # Проверка, есть ли таблица, если нет — инициализация
-    try:
+def get_current_user():
+    user_id = session.get('user_id')
+    if user_id:
         db = get_db()
-        db.execute('SELECT 1 FROM pet LIMIT 1')
-    except sqlite3.OperationalError:
-        init_db()
+        user = db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+        return user
+    return None
 
 @app.route('/')
 def index():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
     db = get_db()
-    pet = db.execute('SELECT * FROM pet WHERE id=1').fetchone()
-    return render_template('index.html', pet=pet)
+    pets = db.execute('SELECT * FROM pets WHERE user_id = ?', (user['id'],)).fetchall()
+    return render_template('index.html', pets=pets, user=user)
 
-@app.route('/feed')
-def feed():
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        hashed_pw = generate_password_hash(password)
+        db = get_db()
+        try:
+            db.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, hashed_pw))
+            db.commit()
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            error = "Пользователь с таким именем уже существует."
+            return render_template('register.html', error=error)
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        db = get_db()
+        user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = user['id']
+            return redirect(url_for('index'))
+        error = "Неверное имя пользователя или пароль."
+        return render_template('login.html', error=error)
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/add', methods=['GET', 'POST'])
+def add_pet():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
+    if request.method == 'POST':
+        name = request.form['name']
+        species = request.form['species']
+        age = request.form['age']
+        db = get_db()
+        db.execute('INSERT INTO pets (name, species, age, user_id) VALUES (?, ?, ?, ?)',
+                   (name, species, age, user['id']))
+        db.commit()
+        return redirect(url_for('index'))
+    return render_template('add_pet.html')
+
+@app.route('/delete/<int:pet_id>', methods=['POST'])
+def delete_pet(pet_id):
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
     db = get_db()
-    db.execute('UPDATE pet SET hunger = (hunger - 10) WHERE id=1')
-    db.execute('UPDATE pet SET hunger = 0 WHERE hunger < 0')
+    # Удаляем только если питомец принадлежит текущему пользователю
+    db.execute('DELETE FROM pets WHERE id = ? AND user_id = ?', (pet_id, user['id']))
     db.commit()
     return redirect(url_for('index'))
 
-@app.route('/play')
-def play():
+@app.route('/pet/<int:pet_id>')
+def pet_detail(pet_id):
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
     db = get_db()
-    db.execute('UPDATE pet SET happiness = (happiness + 10) WHERE id=1')
-    db.execute('UPDATE pet SET happiness = 100 WHERE happiness > 100')
-    db.commit()
+    pet = db.execute('SELECT * FROM pets WHERE id=? AND user_id=?', (pet_id, user['id'])).fetchone()
+    if pet:
+        update_pet_stats(pet)
+        return render_template('pet_detail.html', pet=pet)
     return redirect(url_for('index'))
 
-@app.route('/rest')
-def rest():
+@app.route('/feed/<int:pet_id>', methods=['POST'])
+def feed_pet(pet_id):
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
     db = get_db()
-    db.execute('UPDATE pet SET energy = (energy + 10) WHERE id=1')
-    db.execute('UPDATE pet SET energy = 100 WHERE energy > 100')
-    db.commit()
-    return redirect(url_for('index'))
+    pet = db.execute('SELECT * FROM pets WHERE id=? AND user_id=?', (pet_id, user['id'])).fetchone()
+    if pet:
+        new_hunger = min(pet['hunger'] + 20, 100)
+        db.execute('UPDATE pets SET hunger=?, last_updated=? WHERE id=?', (new_hunger, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), pet_id))
+        db.commit()
+    return redirect(url_for('pet_detail', pet_id=pet_id))
+
+@app.route('/play/<int:pet_id>', methods=['POST'])
+def play_pet(pet_id):
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
+    db = get_db()
+    pet = db.execute('SELECT * FROM pets WHERE id=? AND user_id=?', (pet_id, user['id'])).fetchone()
+    if pet:
+        new_happiness = min(pet['happiness'] + 20, 100)
+        db.execute('UPDATE pets SET happiness=?, last_updated=? WHERE id=?', (new_happiness, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), pet_id))
+        db.commit()
+    return redirect(url_for('pet_detail', pet_id=pet_id))
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    if not os.path.exists(DATABASE):
+        init_db()
+    app.run(debug=True, host='0.0.0.0', port=5000)
