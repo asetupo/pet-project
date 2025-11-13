@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Питомец {{ pet.name }}</title>
+</head>
+<body>
+<h1>{{ pet.name }} ({{ pet.species }})</h1>
+<p>Возраст: {{ pet.age }}</p>
+<p>Голод: {{ pet.hunger }}</p>
+<p>Настроение: {{ pet.happiness }}</p>
+<p>Здоровье: {{ pet.health }}</p>
+<form action="{{ url_for('feed_pet', pet_id=pet.id) }}" method="post">
+    <button type="submit">Кормить</button>
+</form>
+<form action="{{ url_for('play_pet', pet_id=pet.id) }}" method="post">
+    <button type="submit">Играть</button>
+</form>
+<a href="{{ url_for('index') }}">Назад</a>
+</body>
+</html>
