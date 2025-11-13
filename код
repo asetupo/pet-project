@@ -1,0 +1,62 @@
+from flask import Flask, render_template, request, redirect, url_for
+import sqlite3
+
+app = Flask(__name__)
+DATABASE = 'pet.db'
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    with app.app_context():
+        db = get_db()
+        with open('schema.sql', 'r') as f:
+            db.executescript(f.read())
+        # Создаем начального питомца
+        db.execute('INSERT INTO pet (name, hunger, happiness, energy) VALUES (?, ?, ?, ?)',
+                   ('Питомец', 50, 50, 50))
+        db.commit()
+
+@app.before_first_request
+def initialize():
+    # Проверка, есть ли таблица, если нет — инициализация
+    try:
+        db = get_db()
+        db.execute('SELECT 1 FROM pet LIMIT 1')
+    except sqlite3.OperationalError:
+        init_db()
+
+@app.route('/')
+def index():
+    db = get_db()
+    pet = db.execute('SELECT * FROM pet WHERE id=1').fetchone()
+    return render_template('index.html', pet=pet)
+
+@app.route('/feed')
+def feed():
+    db = get_db()
+    db.execute('UPDATE pet SET hunger = (hunger - 10) WHERE id=1')
+    db.execute('UPDATE pet SET hunger = 0 WHERE hunger < 0')
+    db.commit()
+    return redirect(url_for('index'))
+
+@app.route('/play')
+def play():
+    db = get_db()
+    db.execute('UPDATE pet SET happiness = (happiness + 10) WHERE id=1')
+    db.execute('UPDATE pet SET happiness = 100 WHERE happiness > 100')
+    db.commit()
+    return redirect(url_for('index'))
+
+@app.route('/rest')
+def rest():
+    db = get_db()
+    db.execute('UPDATE pet SET energy = (energy + 10) WHERE id=1')
+    db.execute('UPDATE pet SET energy = 100 WHERE energy > 100')
+    db.commit()
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
