@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Добавить питомца</title>
+</head>
+<body>
+    <h1>Добавить нового питомца</h1>
+    <form method="post">
+        <label>Имя: <input type="text" name="name" required></label><br>
+        <label>Вид: <input type="text" name="species" required></label><br>
+        <label>Возраст: <input type="number" name="age" min="0"></label><br>
+        <button type="submit">Добавить</button>
+    </form>
+    <a href="{{ url_for('index') }}">Назад</a>
+</body>
+</html>
