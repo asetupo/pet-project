@@ -7,12 +7,9 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 DATABASE = 'pets.db'
-
-# Папка для хранения изображений
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Разрешённые расширения изображений
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 def allowed_file(filename):
@@ -31,19 +28,17 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
-# Инициализация базы данных при запуске
 def init_db():
     with app.app_context():
         db = get_db()
-        with app.open_resource('schema.sql', mode='r') as f:
+        with open('schema.sql', 'r') as f:
             db.executescript(f.read())
 
 def get_current_user():
     user_id = session.get('user_id')
     if user_id:
         db = get_db()
-        user = db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
-        return user
+        return db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
     return None
 
 @app.route('/')
@@ -98,7 +93,7 @@ def add_pet():
     if request.method == 'POST':
         name = request.form['name']
         species = request.form['species']
-        age = request.form['age']
+        age = int(request.form['age'])
         file = request.files.get('photo')
         filename = None
         if file and allowed_file(file.filename):
@@ -106,10 +101,8 @@ def add_pet():
             filename = f"{user['id']}_{filename}"
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         db = get_db()
-        db.execute(
-            'INSERT INTO pets (name, species, age, user_id, photo) VALUES (?, ?, ?, ?, ?)',
-            (name, species, age, user['id'], filename)
-        )
+        db.execute('INSERT INTO pets (name, species, age, user_id, photo) VALUES (?, ?, ?, ?, ?)',
+                   (name, species, age, user['id'], filename))
         db.commit()
         return redirect(url_for('index'))
     return render_template('add_pet.html')
@@ -129,40 +122,50 @@ def delete_pet(pet_id):
     db.commit()
     return redirect(url_for('index'))
 
-@app.route('/pet/<int:pet_id>')
-def pet_detail(pet_id):
-    user = get_current_user()
-    if not user:
-        return redirect(url_for('login'))
-    db = get_db()
-    pet = db.execute('SELECT * FROM pets WHERE id = ? AND user_id = ?', (pet_id, user['id'])).fetchone()
-    if not pet:
-        return redirect(url_for('index'))
-    return render_template('pet.html', pet=pet)
-
-# Обновление статуса питомца (например, кормление, игра)
-@app.route('/pet/<int:pet_id>/feed', methods=['POST'])
+# Функции взаимодействия с питомцем
+@app.route('/feed/<int:pet_id>', methods=['POST'])
 def feed_pet(pet_id):
     user = get_current_user()
     if not user:
         return redirect(url_for('login'))
     db = get_db()
-    db.execute('UPDATE pets SET hunger = 0 WHERE id = ? AND user_id = ?', (pet_id, user['id']))
-    db.commit()
-    return redirect(url_for('pet_detail', pet_id=pet_id))
+    pet = db.execute('SELECT * FROM pets WHERE id = ? AND user_id = ?', (pet_id, user['id'])).fetchone()
+    if pet:
+        new_hunger = max(pet['hunger'] - 20, 0)
+        new_health = min(pet['health'] + 10, 100)
+        db.execute('UPDATE pets SET hunger = ?, health = ? WHERE id = ?', (new_hunger, new_health, pet_id))
+        db.commit()
+    return redirect(url_for('index'))
 
-@app.route('/pet/<int:pet_id>/play', methods=['POST'])
+@app.route('/play/<int:pet_id>', methods=['POST'])
 def play_with_pet(pet_id):
     user = get_current_user()
     if not user:
         return redirect(url_for('login'))
     db = get_db()
-    db.execute('UPDATE pets SET happiness = happiness + 10 WHERE id = ? AND user_id = ?', (pet_id, user['id']))
+    pet = db.execute('SELECT * FROM pets WHERE id = ? AND user_id = ?', (pet_id, user['id'])).fetchone()
+    if pet:
+        new_happiness = min(pet['happiness'] + 20, 100)
+        db.execute('UPDATE pets SET happiness = ? WHERE id = ?', (new_happiness, pet_id))
+        db.commit()
+    return redirect(url_for('index'))
+
+# Время прогрессии (можно запускать по расписанию или при каждом входе)
+@app.route('/progress')
+def progress():
+    db = get_db()
+    pets = db.execute('SELECT * FROM pets').fetchall()
+    for pet in pets:
+        new_hunger = min(pet['hunger'] + 5, 100)
+        new_health = max(pet['health'] - 2, 0)
+        new_happiness = max(pet['happiness'] - 1, 0)
+        db.execute('UPDATE pets SET hunger = ?, health = ?, happiness = ? WHERE id = ?',
+                   (new_hunger, new_health, new_happiness, pet['id']))
     db.commit()
-    return redirect(url_for('pet_detail', pet_id=pet_id))
+    return 'Прогресс обновлен'
 
 if __name__ == '__main__':
-    if not os.path.exists(DATABASE):
+    if not os.path.exists('pets.db'):
         init_db()
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
