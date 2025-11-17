@@ -1,17 +1,21 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8" />
     <title>Добавить питомца</title>
 </head>
 <body>
-    <h1>Добавить нового питомца</h1>
-    <form method="post">
-        <label>Имя: <input type="text" name="name" required></label><br>
-        <label>Вид: <input type="text" name="species" required></label><br>
-        <label>Возраст: <input type="number" name="age" min="0"></label><br>
-        <button type="submit">Добавить</button>
-    </form>
-    <a href="{{ url_for('index') }}">Назад</a>
+<h2>Добавить питомца</h2>
+<form method="post" enctype="multipart/form-data">
+    <label>Имя:</label>
+    <input type="text" name="name" required><br>
+    <label>Вид:</label>
+    <input type="text" name="species" required><br>
+    <label>Возраст:</label>
+    <input type="number" name="age" required><br>
+    <label>Фотография:</label>
+    <input type="file" name="photo" accept="image/*"><br>
+    <button type="submit">Добавить</button>
+</form>
+<a href="{{ url_for('index') }}">Назад</a>
 </body>
 </html>
