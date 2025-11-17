@@ -1,33 +1,32 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8" />
-    <title>Питомец</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
+<html>
+<head><title>Мои питомцы</title></head>
 <body>
-    <a href="{{ url_for('logout') }}">Выйти</a>
-    <h1>Мои питомцы</h1>
-    <a href="{{ url_for('add_pet') }}">Добавить питомца</a>
-    <table>
-        <tr>
-            <th>Имя</th>
-            <th>Вид</th>
-            <th>Возраст</th>
-            <th>Действия</th>
-        </tr>
-        {% for pet in pets %}
-        <tr>
-            <td>{{ pet[1] }}</td>
-            <td>{{ pet[2] }}</td>
-            <td>{{ pet[3] }}</td>
-            <td>
-                <form action="{{ url_for('delete_pet', pet_id=pet.id) }}" method="post">
-                    <button type="submit">Удалить</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
+<h2>Здравствуйте, {{ user['username'] }}!</h2>
+<a href="{{ url_for('logout') }}">Выйти</a>
+<a href="{{ url_for('add_pet') }}">Добавить питомца</a>
+
+<h3>Питомцы:</h3>
+{% for pet in pets %}
+<div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
+<h4>{{ pet['name'] }} ({{ pet['species'] }})</h4>
+<p>Возраст: {{ pet['age'] }}</p>
+{% if pet['photo'] %}
+<img src="{{ url_for('static', filename='uploads/' + pet['photo']) }}" width="150" alt="{{ pet['name'] }}">
+{% endif %}
+<p>Здоровье: {{ pet['health'] }}</p>
+<p>Счастье: {{ pet['happiness'] }}</p>
+<p>Голод: {{ pet['hunger'] }}</p>
+<form method="post" action="{{ url_for('feed_pet', pet_id=pet['id']) }}">
+<button type="submit">Кормить</button>
+</form>
+<form method="post" action="{{ url_for('play_with_pet', pet_id=pet['id']) }}">
+<button type="submit">Играть</button>
+</form>
+<form method="post" action="{{ url_for('delete_pet', pet_id=pet['id']) }}">
+<button type="submit">Удалить</button>
+</form>
+</div>
+{% endfor %}
 </body>
 </html>
