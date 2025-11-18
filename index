@@ -1,31 +1,122 @@
 <!DOCTYPE html>
 <html>
-<head><title>Мои питомцы</title></head>
+<head>
+    <title>Мои питомцы</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h2 {
+            color: #2c3e50;
+        }
+
+        a {
+            margin-right: 15px;
+            text-decoration: none;
+            color: #2980b9;
+            font-weight: bold;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        h3 {
+            margin-top: 30px;
+            color: #34495e;
+        }
+
+        .pet-card {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .pet-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .pet-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pet-header h4 {
+            margin: 0;
+            font-size: 1.2em;
+            color: #2c3e50;
+        }
+
+        .pet-photo {
+            max-width: 150px;
+            height: auto;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        p {
+            margin: 8px 0;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: #2980b9;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #3498db;
+        }
+    </style>
+</head>
 <body>
+
 <h2>Здравствуйте, {{ user['username'] }}!</h2>
 <a href="{{ url_for('logout') }}">Выйти</a>
 <a href="{{ url_for('add_pet') }}">Добавить питомца</a>
+<a href="{{ url_for('game') }}" class="btn">Играть в космос</a>
 
 <h3>Питомцы:</h3>
 {% for pet in pets %}
-<div style="border: 1px solid #ccc; padding: 10px; margin: 10px;">
-<h4>{{ pet['name'] }} ({{ pet['species'] }})</h4>
-<p>Возраст: {{ pet['age'] }}</p>
-{% if pet['photo'] %}
-<img src="{{ url_for('static', filename='uploads/' + pet['photo']) }}" width="150" alt="{{ pet['name'] }}">
-{% endif %}
-<p>Здоровье: {{ pet['health'] }}</p>
-<p>Счастье: {{ pet['happiness'] }}</p>
-<p>Голод: {{ pet['hunger'] }}</p>
-<form method="post" action="{{ url_for('feed_pet', pet_id=pet['id']) }}">
-<button type="submit">Кормить</button>
-</form>
-<form method="post" action="{{ url_for('play_with_pet', pet_id=pet['id']) }}">
-<button type="submit">Играть</button>
-</form>
-<form method="post" action="{{ url_for('delete_pet', pet_id=pet['id']) }}">
-<button type="submit">Удалить</button>
-</form>
+<div class="pet-card">
+    <div class="pet-header">
+        <h4>{{ pet['name'] }} ({{ pet['species'] }})</h4>
+    </div>
+    {% if pet['photo'] %}
+    <img src="{{ url_for('static', filename='uploads/' + pet['photo']) }}" width="150" alt="{{ pet['name'] }}" class="pet-photo">
+    {% endif %}
+    <p>Возраст: {{ pet['age'] }}</p>
+    <p>Здоровье: {{ pet['health'] }}</p>
+    <p>Счастье: {{ pet['happiness'] }}</p>
+    <p>Голод: {{ pet['hunger'] }}</p>
+    <div class="buttons">
+        <form method="post" action="{{ url_for('feed_pet', pet_id=pet['id']) }}">
+            <button type="submit">Кормить</button>
+        <form method="post" action="{{ url_for('delete_pet', pet_id=pet['id']) }}">
+            <button type="submit">Удалить</button>
+        </form>
+        </div>
 </div>
 {% endfor %}
 </body>
