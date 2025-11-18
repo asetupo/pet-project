@@ -1,4 +1,4 @@
-from flask import Flask, g, render_template, request, redirect, url_for, session
+from flask import Flask, g, render_template, request, redirect, url_for, session, jsonify
 import sqlite3
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -163,6 +163,37 @@ def progress():
                    (new_hunger, new_health, new_happiness, pet['id']))
     db.commit()
     return 'Прогресс обновлен'
+
+@app.route('/game')
+def game():
+    return render_template('game.html')
+
+@app.route('/submit_score', methods=['POST'])
+def submit_score():
+    data = request.get_json()
+    score = data.get('score')
+    user = get_current_user()
+    if user:
+        db = get_db()
+        # Можно обновить характеристики питомца в зависимости от результата
+        # Например, повысить здоровье, если много очков, или уменьшить, если мало
+        db.execute('UPDATE pets SET health = MIN(health - ?, 100) WHERE user_id = ?', (score // 10, user['id']))
+        db.commit()
+    return '', 204
+
+@app.route('/get_world_record')
+def get_world_record():
+    global best_score
+    return jsonify({'record': best_score})
+
+@app.route('/update_world_record', methods=['POST'])
+def update_world_record():
+    global best_score
+    data = request.json
+    if data['record'] > best_score:
+        best_score = data['record']
+    return jsonify({'status': 'ok'})
+
 
 if __name__ == '__main__':
     if not os.path.exists('pets.db'):
