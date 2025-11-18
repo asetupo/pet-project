@@ -1,0 +1,200 @@
+1. Структура проекта
+CopyRun
+my_game/
+│
+├── app.py
+├── models.py (модели и схема БД)
+├── templates/
+│   ├── index.html
+│   ├── login.html
+│   ├── register.html
+│   ├── game.html
+│   ├── profile.html
+│   └── leaderboard.html
+├── static/
+│   ├── style.css
+│   └── game.js
+└── requirements.txt
+2. Установка зависимостей
+requirements.txt:
+
+CopyRun
+Flask
+Flask-SocketIO
+eventlet
+Установка:
+
+CopyRun
+pip install -r requirements.txt
+3. Определение моделей и базы данных (models.py)
+Создадим таблицы для пользователей, питомцев, боёв, достижений.
+
+CopyRun
+import sqlite3
+
+def init_db():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    # Пользователи
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    ''')
+    # Питомцы
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            health INTEGER,
+            magic INTEGER,
+            attack INTEGER,
+            defense INTEGER,
+            level INTEGER,
+            owner_id INTEGER,
+            FOREIGN KEY(owner_id) REFERENCES users(id)
+        )
+    ''')
+    # Бои
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS battles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player1_id INTEGER,
+            player2_id INTEGER,
+            winner_id INTEGER,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    # Достижения
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS achievements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            description TEXT,
+            date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+Запустите один раз для создания таблиц:
+
+CopyRun
+import models
+models.init_db()
+4. Основное приложение (app.py) и WebSocket
+CopyRun
+from flask import Flask, render_template, request, redirect, url_for, session
+from flask_socketio import SocketIO, emit, join_room, leave_room
+import hashlib
+import sqlite3
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
+socketio = SocketIO(app)
+
+def get_db_connection():
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@app.route('/')
+def index():
+    if 'user_id' in session:
+        return render_template('index.html', username=session['username'])
+    return redirect(url_for('login'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    # регистрация
+    pass
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # вход
+    pass
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/game')
+def game():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('game.html')
+
+# Обработчики WebSocket для игры
+@socketio.on('connect')
+def handle_connect():
+    if 'user_id' not in session:
+        return False  # отключить неавторизованных
+
+@socketio.on('join_game')
+def handle_join(data):
+    room = data['room']
+    join_room(room)
+    emit('status', {'msg': f"Игрок присоединился к комнате {room}"}, room=room)
+
+@socketio.on('move')
+def handle_move(data):
+    room = data['room']
+    emit('move', data, room=room)
+
+@socketio.on('leave')
+def handle_leave(data):
+    room = data['room']
+    leave_room(room)
+
+# В будущем: логика боя, обработка ходов, завершение боя и т.д.
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True)
+5. Интерфейс игры (templates/game.html и static/game.js)
+game.html — базовая страница с Canvas и подключением JS:
+
+CopyRun
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Питомцы: Битва</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Битва питомцев</h1>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='game.js') }}"></script>
+</body>
+</html>
+static/game.js — пример обмена сообщениями через WebSocket:
+
+CopyRun
+const socket = io();
+
+socket.on('connect', () => {
+    socket.emit('join_game', { room: 'battle_room_1' });
+});
+
+// Отправка хода
+function sendMove(move) {
+    socket.emit('move', { room: 'battle_room_1', move: move });
+}
+
+// Получение обновлений боя
+socket.on('move', (data) => {
+    // Обработка хода соперника
+    console.log('Получен ход:', data);
+});
+6. Развитие проекта
+Это только каркас. Для полноценной игры потребуется:
+
+Реализовать логики боя (походы, атаки, умения)
+Добавить таблицы лидеров и достижения
+Сделать личный кабинет с историей боёв
+Расширить интерфейс с помощью Canvas/WebGL
+Реализовать систему улучшений питомцев, получение наград
+Реализовать реалтайм боёв через WebSocket (Flask-SocketIO)
