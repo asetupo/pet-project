@@ -1,5 +1,4 @@
 1. Структура проекта
-CopyRun
 my_game/
 │
 ├── app.py
@@ -18,18 +17,18 @@ my_game/
 2. Установка зависимостей
 requirements.txt:
 
-CopyRun
+
 Flask
 Flask-SocketIO
 eventlet
 Установка:
 
-CopyRun
+
 pip install -r requirements.txt
 3. Определение моделей и базы данных (models.py)
 Создадим таблицы для пользователей, питомцев, боёв, достижений.
 
-CopyRun
+
 import sqlite3
 
 def init_db():
@@ -81,7 +80,7 @@ def init_db():
     conn.close()
 Запустите один раз для создания таблиц:
 
-CopyRun
+
 import models
 models.init_db()
 4. Основное приложение (app.py) и WebSocket
@@ -172,7 +171,7 @@ CopyRun
 </html>
 static/game.js — пример обмена сообщениями через WebSocket:
 
-CopyRun
+
 const socket = io();
 
 socket.on('connect', () => {
